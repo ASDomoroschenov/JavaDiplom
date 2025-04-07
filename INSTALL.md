@@ -46,7 +46,7 @@ sudo ln -s $(pwd)/sage /usr/local/bin/sage
 
 ### Проверка установки
 
-Вы можете использовать Makefile или bash-скрипт для проверки:
+Вы можете использовать Makefile для проверки:
 
 #### Makefile
 
