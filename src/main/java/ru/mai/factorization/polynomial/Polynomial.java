@@ -1,8 +1,8 @@
-package ru.mai.attack.polynomial;
+package ru.mai.factorization.polynomial;
 
 import java.math.BigInteger;
 import java.util.Arrays;
-import ru.mai.attack.monomial.Monomial;
+import ru.mai.factorization.monomial.Monomial;
 
 /**
  * Утилитарный класс для работы с полиномами.

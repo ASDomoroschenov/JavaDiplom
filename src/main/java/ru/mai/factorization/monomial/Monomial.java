@@ -1,4 +1,4 @@
-package ru.mai.attack.monomial;
+package ru.mai.factorization.monomial;
 
 /**
  * Класс для работы с мономами.

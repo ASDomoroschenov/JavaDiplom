@@ -1,4 +1,4 @@
-package ru.mai.attack;
+package ru.mai.factorization;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -16,17 +16,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
-import ru.mai.attack.comparator.IndexTripleEntryComparator;
-import ru.mai.attack.monomial.Monomial;
-import ru.mai.attack.comparator.MonomialComparator;
-import ru.mai.attack.polynomial.MultivariatePolynomial;
-import ru.mai.attack.polynomial.Polynomial;
-import ru.mai.attack.utils.IndexTriple;
+import ru.mai.factorization.comparator.IndexTripleEntryComparator;
+import ru.mai.factorization.monomial.Monomial;
+import ru.mai.factorization.comparator.MonomialComparator;
+import ru.mai.factorization.polynomial.MultivariatePolynomial;
+import ru.mai.factorization.polynomial.Polynomial;
+import ru.mai.factorization.utils.IndexTriple;
 
 /**
  * Класс для атаки на RSA.
  */
-public class RSALatticeAttack {
+public class RSALatticeFactorization {
 
   /**
    * Генерация полиномов G(x,y,z).
@@ -227,7 +227,7 @@ public class RSALatticeAttack {
       writer.println();
 
       List<MultivariatePolynomial> sorted = new ArrayList<>(polys);
-      sorted.sort(Comparator.comparing(RSALatticeAttack::computeEuclideanNormSquared));
+      sorted.sort(Comparator.comparing(RSALatticeFactorization::computeEuclideanNormSquared));
 
       for (int i = 0; i < Math.min(45, sorted.size()); i++) {
         MultivariatePolynomial poly = sorted.get(i);
@@ -381,7 +381,7 @@ public class RSALatticeAttack {
    * @throws IOException исключение при работе с файлами
    * @throws InterruptedException исключение при работе с утилитой fplll
    */
-  public static void attack(
+  public static void factorization(
       BigInteger N,
       BigInteger c,
       BigInteger e,
@@ -465,6 +465,6 @@ public class RSALatticeAttack {
     BigInteger Y = new BigInteger("2041387019440815");
     BigInteger Z = new BigInteger("5788687978307547385658367719917397827407255326981854011616875");
 
-    attack(N, c, e, n, m, t, X, Y, Z);
+    factorization(N, c, e, n, m, t, X, Y, Z);
   }
 }

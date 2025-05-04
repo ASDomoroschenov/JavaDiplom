@@ -1,4 +1,4 @@
-package ru.mai.attack.utils;
+package ru.mai.factorization.utils;
 
 /**
  * Класс для работы с тройками индексов.

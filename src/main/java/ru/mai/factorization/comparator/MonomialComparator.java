@@ -1,7 +1,7 @@
-package ru.mai.attack.comparator;
+package ru.mai.factorization.comparator;
 
 import java.util.Comparator;
-import ru.mai.attack.monomial.Monomial;
+import ru.mai.factorization.monomial.Monomial;
 
 /**
  * Класс для сравнения мономов в порядке, указанном в статье.
