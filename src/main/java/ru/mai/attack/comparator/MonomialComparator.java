@@ -1,6 +1,7 @@
-package ru.mai.attack;
+package ru.mai.attack.comparator;
 
 import java.util.Comparator;
+import ru.mai.attack.monomial.Monomial;
 
 /**
  * Класс для сравнения мономов в порядке, указанном в статье.
@@ -16,13 +17,13 @@ public class MonomialComparator implements Comparator<Monomial> {
    */
   @Override
   public int compare(Monomial first, Monomial second) {
-    if ((first.getZ() < second.getZ())
-        || (first.getZ() == second.getZ() && first.getX() < second.getX())
-        || (first.getZ() == second.getZ() && first.getX() == second.getX() && first.getY() < second.getY())) {
+    if ((first.z() < second.z())
+        || (first.z() == second.z() && first.x() < second.x())
+        || (first.z() == second.z() && first.x() == second.x() && first.y() < second.y())) {
       return -1;
     }
 
-    if (first.getZ() == second.getZ() && first.getX() == second.getX() && first.getY() == second.getY()) {
+    if (first.z() == second.z() && first.x() == second.x() && first.y() == second.y()) {
       return 0;
     }
 

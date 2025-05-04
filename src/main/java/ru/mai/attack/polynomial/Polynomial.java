@@ -1,7 +1,8 @@
-package ru.mai.attack;
+package ru.mai.attack.polynomial;
 
 import java.math.BigInteger;
 import java.util.Arrays;
+import ru.mai.attack.monomial.Monomial;
 
 /**
  * Утилитарный класс для работы с полиномами.
@@ -126,11 +127,11 @@ public class Polynomial {
       Monomial m = entry.getKey();
       BigInteger coeff = entry.getValue();
 
-      int q = Math.min(m.x, m.y / r);
+      int q = Math.min(m.x(), m.y() / r);
 
-      int newX = m.x - q;
-      int newY = m.y - q * r;
-      int newZ = m.z + q;
+      int newX = m.x() - q;
+      int newY = m.y() - q * r;
+      int newZ = m.z() + q;
 
       Monomial reduced = new Monomial(newX, newY, newZ);
       result.addToCoeff(reduced, coeff);

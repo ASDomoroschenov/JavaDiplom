@@ -16,6 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+import ru.mai.attack.comparator.IndexTripleEntryComparator;
+import ru.mai.attack.monomial.Monomial;
+import ru.mai.attack.comparator.MonomialComparator;
+import ru.mai.attack.polynomial.MultivariatePolynomial;
+import ru.mai.attack.polynomial.Polynomial;
+import ru.mai.attack.utils.IndexTriple;
 
 /**
  * Класс для атаки на RSA.
@@ -88,9 +94,9 @@ public class RSALatticeAttack {
       for (Monomial monomial : basis) {
         BigInteger coeff = entry.getValue().terms.getOrDefault(monomial, BigInteger.ZERO);
         matrix[i][j] = coeff
-            .multiply(X.pow(monomial.x))
-            .multiply(Y.pow(monomial.y))
-            .multiply(Z.pow(monomial.z));
+            .multiply(X.pow(monomial.x()))
+            .multiply(Y.pow(monomial.y()))
+            .multiply(Z.pow(monomial.z()));
         j++;
       }
 
@@ -258,14 +264,14 @@ public class RSALatticeAttack {
       }
 
       String term = coeff.toString();
-      if (m.x > 0) {
-        term += "*x" + (m.x > 1 ? "^" + m.x : "");
+      if (m.x() > 0) {
+        term += "*x" + (m.x() > 1 ? "^" + m.x() : "");
       }
-      if (m.y > 0) {
-        term += "*y" + (m.y > 1 ? "^" + m.y : "");
+      if (m.y() > 0) {
+        term += "*y" + (m.y() > 1 ? "^" + m.y() : "");
       }
-      if (m.z > 0) {
-        term += "*z" + (m.z > 1 ? "^" + m.z : "");
+      if (m.z() > 0) {
+        term += "*z" + (m.z() > 1 ? "^" + m.z() : "");
       }
 
       terms.add(term);
@@ -319,7 +325,7 @@ public class RSALatticeAttack {
       }
 
       Monomial m = basis.get(i);
-      BigInteger scale = X.pow(m.x).multiply(Y.pow(m.y)).multiply(Z.pow(m.z));
+      BigInteger scale = X.pow(m.x()).multiply(Y.pow(m.y())).multiply(Z.pow(m.z()));
 
       BigInteger coeff = rawCoeff.divide(scale);
 
@@ -436,9 +442,9 @@ public class RSALatticeAttack {
         Monomial monomial = entry.getKey();
 
         val = val.add(
-            coeff.multiply(x0.pow(monomial.x))
-                .multiply(y0.pow(monomial.y))
-                .multiply(z0.pow(monomial.z))
+            coeff.multiply(x0.pow(monomial.x()))
+                .multiply(y0.pow(monomial.y()))
+                .multiply(z0.pow(monomial.z()))
         );
       }
 

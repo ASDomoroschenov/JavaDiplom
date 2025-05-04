@@ -1,15 +1,16 @@
-package ru.mai.attack;
+package ru.mai.attack.polynomial;
 
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
+import ru.mai.attack.monomial.Monomial;
 
 /**
  * Класс для работы с полиномами.
  */
 public class MultivariatePolynomial {
 
-  final Map<Monomial, BigInteger> terms = new HashMap<>();
+  public final Map<Monomial, BigInteger> terms = new HashMap<>();
 
   /**
    * Добавление нового монома к полиному.
@@ -67,7 +68,7 @@ public class MultivariatePolynomial {
     for (var entry : this.terms.entrySet()) {
       Monomial m = entry.getKey();
       BigInteger coeff = entry.getValue();
-      res.addTerm(coeff, new Monomial(m.getX() + dx, m.getY() + dy, m.getZ() + dz));
+      res.addTerm(coeff, new Monomial(m.x() + dx, m.y() + dy, m.z() + dz));
     }
 
     return res;

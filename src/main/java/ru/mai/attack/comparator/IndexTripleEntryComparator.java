@@ -1,7 +1,9 @@
-package ru.mai.attack;
+package ru.mai.attack.comparator;
 
 import java.util.Comparator;
 import java.util.Map.Entry;
+import ru.mai.attack.utils.IndexTriple;
+import ru.mai.attack.polynomial.MultivariatePolynomial;
 
 /**
  * Класс для сравнения объектов G(x,y,z) в порядке, указанном в статье.
