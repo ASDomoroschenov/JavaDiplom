@@ -31,8 +31,8 @@ public class Main {
         .divide((p.subtract(BigInteger.ONE)).multiply(q.subtract(BigInteger.ONE)));
     BigInteger d = e.modInverse(phi);
 
-    PublicKey publicKey = new PublicKey(p, q, degree, a, e);
-    PrivateKey privateKey = new PrivateKey(a, d);
+    PublicKey publicKey = new PublicKey(N, degree, a, e);
+    PrivateKey privateKey = new PrivateKey(p, q, degree, a, d);
     RSA rsa = new RSAImpl(publicKey, privateKey);
 
     testRsa(rsa);

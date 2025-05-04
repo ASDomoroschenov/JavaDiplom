@@ -5,9 +5,9 @@ import ru.mai.cipher.polynomial.PolynomialMultiplication;
 import ru.mai.cipher.utils.RSAPolynomialFactory;
 
 /**
- * Реализация операции умножения многочленов в RSA Котана и Тэшелеану.
+ * Класс, реализующий умножения полиномов для дешифрующей стороны.
  */
-public class RSAPolynomialMultiplication implements PolynomialMultiplication {
+public class RSADecipherMultiplication implements PolynomialMultiplication {
 
   private final BigInteger p;
   private final BigInteger q;
@@ -22,7 +22,7 @@ public class RSAPolynomialMultiplication implements PolynomialMultiplication {
    * @param a параметр RSA
    * @param n параметр RSA
    */
-  public RSAPolynomialMultiplication(BigInteger p, BigInteger q, BigInteger a, int n) {
+  public RSADecipherMultiplication(BigInteger p, BigInteger q, BigInteger a, int n) {
     this.p = p;
     this.q = q;
     this.a = a;

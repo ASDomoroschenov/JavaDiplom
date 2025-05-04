@@ -389,6 +389,7 @@ public class RSALatticeAttack {
     BigInteger[] H = Polynomial.phi(n, N);
 
     Map<IndexTriple, MultivariatePolynomial> Gs = generateG(H, c, e, m, t, r);
+
     List<Monomial> basis = generateCustomMonomialBasis(Gs);
     BigInteger[][] matrix = polynomialsToMatrix(Gs, basis, X, Y, Z);
 

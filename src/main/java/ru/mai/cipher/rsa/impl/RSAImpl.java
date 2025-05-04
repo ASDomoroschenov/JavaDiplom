@@ -7,7 +7,8 @@ import ru.mai.cipher.polynomial.PolynomialAddition;
 import ru.mai.cipher.polynomial.PolynomialMultiplication;
 import ru.mai.cipher.polynomial.impl.RSAPolynomial;
 import ru.mai.cipher.polynomial.impl.RSAPolynomialAddition;
-import ru.mai.cipher.polynomial.impl.RSAPolynomialMultiplication;
+import ru.mai.cipher.polynomial.impl.RSADecipherMultiplication;
+import ru.mai.cipher.polynomial.impl.RSACipherMultiplication;
 import ru.mai.cipher.rsa.RSA;
 import ru.mai.cipher.utils.RSAPolynomialFactory;
 import ru.mai.cipher.utils.RSARandomGenerator;
@@ -20,7 +21,8 @@ public class RSAImpl implements RSA {
   private final PublicKey publicKey;
   private final PrivateKey privateKey;
   private final PolynomialAddition rsaAddition;
-  private final PolynomialMultiplication rsaMultiplication;
+  private final PolynomialMultiplication rsaCipherMultiplication;
+  private final PolynomialMultiplication rsaDecipherMultiplication;
 
   /**
    * Метод для вызова дефолтного конструктора как статического метода.
@@ -40,13 +42,18 @@ public class RSAImpl implements RSA {
     this.privateKey = keys.privateKey;
     this.rsaAddition = new RSAPolynomialAddition(
         publicKey.degree(),
-        publicKey.p().multiply(publicKey.q())
+        publicKey.N()
     );
-    this.rsaMultiplication = new RSAPolynomialMultiplication(
-        publicKey.p(),
-        publicKey.q(),
+    this.rsaCipherMultiplication = new RSACipherMultiplication(
+        publicKey.N(),
         publicKey.a(),
         publicKey.degree()
+    );
+    this.rsaDecipherMultiplication = new RSADecipherMultiplication(
+        privateKey.p(),
+        privateKey.q(),
+        privateKey.a(),
+        privateKey.degree()
     );
   }
 
@@ -62,13 +69,18 @@ public class RSAImpl implements RSA {
     this.privateKey = keys.privateKey;
     this.rsaAddition = new RSAPolynomialAddition(
         publicKey.degree(),
-        publicKey.p().multiply(publicKey.q())
+        publicKey.N()
     );
-    this.rsaMultiplication = new RSAPolynomialMultiplication(
-        publicKey.p(),
-        publicKey.q(),
+    this.rsaCipherMultiplication = new RSACipherMultiplication(
+        publicKey.N(),
         publicKey.a(),
         publicKey.degree()
+    );
+    this.rsaDecipherMultiplication = new RSADecipherMultiplication(
+        privateKey.p(),
+        privateKey.q(),
+        privateKey.a(),
+        privateKey.degree()
     );
   }
 
@@ -83,13 +95,18 @@ public class RSAImpl implements RSA {
     this.privateKey = privateKey;
     this.rsaAddition = new RSAPolynomialAddition(
         publicKey.degree(),
-        publicKey.p().multiply(publicKey.q())
+        publicKey.N()
     );
-    this.rsaMultiplication = new RSAPolynomialMultiplication(
-        publicKey.p(),
-        publicKey.q(),
+    this.rsaCipherMultiplication = new RSACipherMultiplication(
+        publicKey.N(),
         publicKey.a(),
         publicKey.degree()
+    );
+    this.rsaDecipherMultiplication = new RSADecipherMultiplication(
+        privateKey.p(),
+        privateKey.q(),
+        privateKey.a(),
+        privateKey.degree()
     );
   }
 
@@ -105,7 +122,7 @@ public class RSAImpl implements RSA {
         publicKey.degree(),
         text,
         rsaAddition,
-        rsaMultiplication
+        rsaCipherMultiplication
     );
     return polynomial.pow(publicKey.e()).getCoefficients();
   }
@@ -122,7 +139,7 @@ public class RSAImpl implements RSA {
         publicKey.degree(),
         text,
         rsaAddition,
-        rsaMultiplication
+        rsaDecipherMultiplication
     );
     return polynomial.pow(privateKey.d()).getCoefficients();
   }
@@ -160,8 +177,8 @@ public class RSAImpl implements RSA {
       BigInteger d = e.modInverse(phi);
 
       return new RSAPair(
-          new PublicKey(p, q, n, a, e),
-          new PrivateKey(a, d)
+          new PublicKey(p.multiply(q), n, a, e),
+          new PrivateKey(p, q, n, a, d)
       );
     }
 
@@ -186,20 +203,19 @@ public class RSAImpl implements RSA {
    * @param a свободный член неприводимого многочлена
    * @param d приватная константа
    */
-  public record PrivateKey(BigInteger a, BigInteger d) {
+  public record PrivateKey(BigInteger p, BigInteger q, Integer degree, BigInteger a, BigInteger d) {
 
   }
 
   /**
    * Публичный ключ.
    *
-   * @param p параметр RSA
-   * @param q параметр RSA
+   * @param N параметр RSA
    * @param degree максимальная степень многочленов
    * @param a свободный член неприводимого многочлена
    * @param e параметр RSA
    */
-  public record PublicKey(BigInteger p, BigInteger q, Integer degree, BigInteger a, BigInteger e) {
+  public record PublicKey(BigInteger N, Integer degree, BigInteger a, BigInteger e) {
 
   }
 
