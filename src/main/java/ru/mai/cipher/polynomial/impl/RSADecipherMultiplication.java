@@ -2,6 +2,7 @@ package ru.mai.cipher.polynomial.impl;
 
 import java.math.BigInteger;
 import ru.mai.cipher.polynomial.PolynomialMultiplication;
+import ru.mai.cipher.utils.GaloisField;
 import ru.mai.cipher.utils.RSAPolynomialFactory;
 
 /**
@@ -63,8 +64,8 @@ public class RSADecipherMultiplication implements PolynomialMultiplication {
       Bq[i] = B[i].mod(q);
     }
 
-    BigInteger[] multiplyModP = multiplyInGaloisField(Ap, Bp, n, a, p);
-    BigInteger[] multiplyModQ = multiplyInGaloisField(Aq, Bq, n, a, q);
+    BigInteger[] multiplyModP = GaloisField.multiplyWithInverse(Ap, Bp, n, a, p);
+    BigInteger[] multiplyModQ = GaloisField.multiplyWithInverse(Aq, Bq, n, a, q);
 
     return restoreCTR(multiplyModP, multiplyModQ, p, q, n);
   }
