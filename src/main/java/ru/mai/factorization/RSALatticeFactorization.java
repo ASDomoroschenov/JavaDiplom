@@ -39,8 +39,13 @@ public class RSALatticeFactorization {
    * @param r параметр решетки
    * @return сгенерированные полиномы G(x,y,z)
    */
-  private static Map<IndexTriple, MultivariatePolynomial> generateG(BigInteger[] H, BigInteger c,
-      BigInteger e, int m, int t, int r) {
+  private static Map<IndexTriple, MultivariatePolynomial> generateG(
+      BigInteger[] H,
+      BigInteger c,
+      BigInteger e,
+      int m,
+      int t,
+      int r) {
     Map<IndexTriple, MultivariatePolynomial> result = new HashMap<>();
     MultivariatePolynomial F = Polynomial.buildF(H, c);
 
@@ -350,6 +355,7 @@ public class RSALatticeFactorization {
     Process process = pb.start();
 
     List<String> outputLines = new ArrayList<>();
+
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
       String line;
 
@@ -359,6 +365,7 @@ public class RSALatticeFactorization {
     }
 
     int exitCode = process.waitFor();
+
     if (exitCode != 0) {
       throw new RuntimeException("Sage завершился с ошибкой, код: " + exitCode);
     }
@@ -412,6 +419,8 @@ public class RSALatticeFactorization {
       polys.add(vectorToPolynomialUnscale(vector, basis, X, Y, Z));
     }
 
+    check(polys);
+
     exportPolynomialsToSage(polys, new File("solve.sage"));
 
     File sageScript = new File("solve.sage");
@@ -429,11 +438,13 @@ public class RSALatticeFactorization {
    * @param polys полиномы после алгоритма LLL
    */
   private static void check(List<MultivariatePolynomial> polys) {
+    int counter = 0;
     BigInteger x0 = new BigInteger("16165734257585");
     BigInteger y0 = new BigInteger("1360935721901674");
     BigInteger z0 = new BigInteger("40748185648950035910680304028872647558518309799826755032040");
 
     for (MultivariatePolynomial poly : polys) {
+      counter++;
       Map<Monomial, BigInteger> terms = poly.getTerms();
       BigInteger val = BigInteger.ZERO;
 
@@ -448,7 +459,7 @@ public class RSALatticeFactorization {
         );
       }
 
-      System.out.println(val);
+      System.out.println("f" + counter + " = " + val);
     }
   }
 
