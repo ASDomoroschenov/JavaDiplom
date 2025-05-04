@@ -20,7 +20,7 @@ import ru.mai.factorization.comparator.IndexTripleEntryComparator;
 import ru.mai.factorization.monomial.Monomial;
 import ru.mai.factorization.comparator.MonomialComparator;
 import ru.mai.factorization.polynomial.MultivariatePolynomial;
-import ru.mai.factorization.polynomial.Polynomial;
+import ru.mai.factorization.utils.Polynomial;
 import ru.mai.factorization.utils.IndexTriple;
 
 /**
