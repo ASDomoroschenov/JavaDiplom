@@ -2,8 +2,8 @@ package ru.mai.factorization.comparator;
 
 import java.util.Comparator;
 import java.util.Map.Entry;
-import ru.mai.factorization.utils.IndexTriple;
 import ru.mai.factorization.polynomial.MultivariatePolynomial;
+import ru.mai.factorization.utils.IndexTriple;
 
 /**
  * Класс для сравнения объектов G(x,y,z) в порядке, указанном в статье.

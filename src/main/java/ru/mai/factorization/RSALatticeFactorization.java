@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,12 +17,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+import ru.mai.cipher.utils.RSAUtils;
 import ru.mai.factorization.comparator.IndexTripleEntryComparator;
-import ru.mai.factorization.monomial.Monomial;
 import ru.mai.factorization.comparator.MonomialComparator;
+import ru.mai.factorization.monomial.Monomial;
 import ru.mai.factorization.polynomial.MultivariatePolynomial;
-import ru.mai.factorization.utils.Polynomial;
+import ru.mai.factorization.utils.FactorizationUtils;
 import ru.mai.factorization.utils.IndexTriple;
+import ru.mai.factorization.utils.Polynomial;
 
 /**
  * Класс для атаки на RSA.
@@ -54,12 +57,14 @@ public class RSALatticeFactorization {
       MultivariatePolynomial Fk = F.pow(k).multiply(scale);
 
       for (int j = 0; j <= t; j++) {
-        result.put(new IndexTriple(k, 0, j), Polynomial.reduceXYrToZ(Fk.multiplyMonomial(0, j, 0), r));
+        result.put(new IndexTriple(k, 0, j),
+            Polynomial.reduceXYrToZ(Fk.multiplyMonomial(0, j, 0), r));
       }
 
       for (int i = 1; i <= m - k; i++) {
         for (int j = 0; j <= r - 1; j++) {
-          result.put(new IndexTriple(k, i, j), Polynomial.reduceXYrToZ(Fk.multiplyMonomial(i, j, 0), r));
+          result.put(new IndexTriple(k, i, j),
+              Polynomial.reduceXYrToZ(Fk.multiplyMonomial(i, j, 0), r));
         }
       }
     }
@@ -78,11 +83,11 @@ public class RSALatticeFactorization {
   /**
    * Перевод полиномов в матрицу, включая операцию масштабирования.
    *
-   * @param Gs сгенерированные полиномы G(x,y,z)
+   * @param Gs    сгенерированные полиномы G(x,y,z)
    * @param basis базис решетки
-   * @param X масштабирование по X
-   * @param Y масштабирование по Y
-   * @param Z масштабирование по Z
+   * @param X     масштабирование по X
+   * @param Y     масштабирование по Y
+   * @param Z     масштабирование по Z
    * @return матрица, готовая для LLL
    */
   private static BigInteger[][] polynomialsToMatrix(
@@ -116,7 +121,7 @@ public class RSALatticeFactorization {
    * Запись матрицы во входной файл для LLL.
    *
    * @param matrix матрица
-   * @param file входной файл
+   * @param file   входной файл
    * @throws IOException исключение при работе с файлом
    */
   private static void writeMatrixForFplll(BigInteger[][] matrix, File file) throws IOException {
@@ -136,12 +141,13 @@ public class RSALatticeFactorization {
   /**
    * Запуск LLL.
    *
-   * @param inputFile файл с входными данными
+   * @param inputFile  файл с входными данными
    * @param outputFile файл для вывода
-   * @throws IOException исключение при работе с файлом
+   * @throws IOException          исключение при работе с файлом
    * @throws InterruptedException исключение при работе с утилитой fplll
    */
-  private static void runFplll(File inputFile, File outputFile) throws IOException, InterruptedException {
+  private static void runFplll(File inputFile, File outputFile)
+      throws IOException, InterruptedException {
     ProcessBuilder pb = new ProcessBuilder(
         "fplll",
         inputFile.getAbsolutePath(),
@@ -222,7 +228,7 @@ public class RSALatticeFactorization {
    * Экспортирование полиномов в файл sage для решения методом Гребнера.
    *
    * @param polys полиномы
-   * @param file файл для вывода
+   * @param file  файл для вывода
    * @throws IOException исключение при работе с файлом
    */
   private static void exportPolynomialsToSage(List<MultivariatePolynomial> polys, File file)
@@ -308,10 +314,10 @@ public class RSALatticeFactorization {
    * Перевод векторов в полиномы с размасштабированием.
    *
    * @param vector вектор
-   * @param basis базис
-   * @param X масштаб по X
-   * @param Y масштаб по Y
-   * @param Z масштаб по Z
+   * @param basis  базис
+   * @param X      масштаб по X
+   * @param Y      масштаб по Y
+   * @param Z      масштаб по Z
    * @return полином
    */
   public static MultivariatePolynomial vectorToPolynomialUnscale(
@@ -356,7 +362,8 @@ public class RSALatticeFactorization {
 
     List<String> outputLines = new ArrayList<>();
 
-    try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+    try (BufferedReader reader = new BufferedReader(
+        new InputStreamReader(process.getInputStream()))) {
       String line;
 
       while ((line = reader.readLine()) != null) {
@@ -385,7 +392,7 @@ public class RSALatticeFactorization {
    * @param X масштабирование по X. определяется экспериментально.
    * @param Y масштабирование по Y. определяется экспериментально.
    * @param Z масштабирование по Z. определяется экспериментально.
-   * @throws IOException исключение при работе с файлами
+   * @throws IOException          исключение при работе с файлами
    * @throws InterruptedException исключение при работе с утилитой fplll
    */
   public static void factorization(
@@ -432,14 +439,44 @@ public class RSALatticeFactorization {
   }
 
   /**
-   * Проверка полиномов после выполнения LLL. Исключительно для числового примера
-   * из статьи.
+   * Проверка полиномов после выполнения LLL. Исключительно для числового примера из статьи.
    *
    * @param polys полиномы после алгоритма LLL
    */
   private static void check(List<MultivariatePolynomial> polys) {
     int counter = 0;
-    BigInteger x0 = new BigInteger("16165734257585");
+    BigInteger x0 = new BigInteger("60864");
+    BigInteger y0 = new BigInteger("1360935721901674");
+    BigInteger z0 = new BigInteger("153416945486038003758230020755607195112116718900736");
+
+    for (MultivariatePolynomial poly : polys) {
+      counter++;
+      Map<Monomial, BigInteger> terms = poly.getTerms();
+      BigInteger val = BigInteger.ZERO;
+
+      for (Entry<Monomial, BigInteger> entry : terms.entrySet()) {
+        BigInteger coeff = entry.getValue();
+        Monomial monomial = entry.getKey();
+
+        val = val.add(
+            coeff.multiply(x0.pow(monomial.x()))
+                .multiply(y0.pow(monomial.y()))
+                .multiply(z0.pow(monomial.z()))
+        );
+      }
+
+      System.out.println("f" + counter + " = " + val);
+    }
+  }
+
+  /**
+   * Проверка полиномов после выполнения LLL. Исключительно для числового примера из статьи.
+   *
+   * @param polys полиномы после алгоритма LLL
+   */
+  private static void check1(List<MultivariatePolynomial> polys) {
+    int counter = 0;
+    BigInteger x0 = new BigInteger("1616573608644257585");
     BigInteger y0 = new BigInteger("1360935721901674");
     BigInteger z0 = new BigInteger("40748185648950035910680304028872647558518309799826755032040");
 
@@ -463,7 +500,58 @@ public class RSALatticeFactorization {
     }
   }
 
-  public static void main(String[] args) throws IOException, InterruptedException {
+  /**
+   * Основной метод для факторизации.
+   *
+   * @param n     параметр RSA
+   * @param m     параметр решетки
+   * @param t     параметр решетки
+   * @param N     параметр RSA
+   * @param e     параметр RSA
+   * @param d0    параметр RSA
+   * @param M     число известных бит в виде 2^s
+   * @param delta приближение d относительно N
+   * @throws IOException          исключение при работе с файлами
+   * @throws InterruptedException исключение при запуске процесса
+   */
+  public static void factorization(
+      int n,
+      int m,
+      int t,
+      BigInteger N,
+      BigInteger e,
+      BigInteger d0,
+      BigInteger M,
+      BigDecimal delta) throws IOException, InterruptedException {
+    BigDecimal alpha = FactorizationUtils.log(new BigDecimal(N), new BigDecimal(e));
+
+    BigDecimal xScale = alpha.add(delta).subtract(new BigDecimal(n)).add(BigDecimal.ONE);
+    BigDecimal yScale = BigDecimal.valueOf(0.5);
+
+    BigInteger X = FactorizationUtils.scale(N, xScale);
+    BigInteger Y = FactorizationUtils.scale(N, yScale).multiply(BigInteger.valueOf(3));
+    BigInteger Z = X.multiply(Y.pow(n - 1));
+
+    factorization(
+        N,
+        e.multiply(d0).negate().add(BigInteger.ONE),
+        e.multiply(M),
+        n,
+        m,
+        t,
+        X,
+        Y,
+        Z
+    );
+  }
+
+  /**
+   * Воспроизведение примера из статьи.
+   *
+   * @throws IOException исключение при работе с файлами
+   * @throws InterruptedException исключение при запуске процесса
+   */
+  public static void test1() throws IOException, InterruptedException {
     BigInteger N = new BigInteger("463028995904606051817018641173");
     BigInteger c = new BigInteger("89508787964537769839958980218674109695435455229928587492654228177046463498977617360027022");
     BigInteger e = new BigInteger("17245940996311682203024873234841963839090492688579713115090719406582906246851863033916922");
@@ -477,5 +565,43 @@ public class RSALatticeFactorization {
     BigInteger Z = new BigInteger("5788687978307547385658367719917397827407255326981854011616875");
 
     factorization(N, c, e, n, m, t, X, Y, Z);
+  }
+
+  /**
+   * Адаптация примера из статьи под реальные условия RSA.
+   *
+   * @throws IOException исключение при работе с файлами
+   * @throws InterruptedException исключение при запуске процесса
+   */
+  public static void test2() throws IOException, InterruptedException {
+    int n = 4;
+    BigInteger p = new BigInteger("683209007134751");
+    BigInteger q = new BigInteger("677726714766923");
+    BigInteger e = new BigInteger("65537");
+    BigInteger N = p.multiply(q);
+    BigInteger phi = RSAUtils.phi(p, q, n);
+    BigInteger d = e.modInverse(phi);
+    BigInteger d1 = d.shiftRight(210);
+    BigInteger d0 = d.subtract(d1.multiply(BigInteger.TWO.pow(210)));
+    BigInteger M = BigInteger.TWO.pow(210);
+    int m = 4;
+    int t = 2;
+
+    BigDecimal alpha = FactorizationUtils.log(new BigDecimal(N), new BigDecimal(e));
+    BigDecimal mu = FactorizationUtils.log(new BigDecimal(N), new BigDecimal(M));
+    BigDecimal delta = new BigDecimal("3");
+
+    if (FactorizationUtils.canFactorize(n, alpha, mu, delta)) {
+      factorization(
+          n,
+          m,
+          t,
+          N,
+          e,
+          d0,
+          M,
+          delta
+      );
+    }
   }
 }
