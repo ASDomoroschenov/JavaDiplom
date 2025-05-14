@@ -1,4 +1,4 @@
-package ru.mai.factorization.utils;
+package ru.mai.factorization.tuple;
 
 /**
  * Класс для работы с тройками индексов.

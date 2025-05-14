@@ -16,20 +16,128 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import ru.mai.cipher.utils.RSAUtils;
 import ru.mai.factorization.comparator.IndexTripleEntryComparator;
 import ru.mai.factorization.comparator.MonomialComparator;
 import ru.mai.factorization.monomial.Monomial;
 import ru.mai.factorization.polynomial.MultivariatePolynomial;
+import ru.mai.factorization.dividers.Dividers;
 import ru.mai.factorization.utils.FactorizationUtils;
-import ru.mai.factorization.utils.IndexTriple;
+import ru.mai.factorization.tuple.IndexTriple;
 import ru.mai.factorization.utils.Polynomial;
 
 /**
  * Класс для атаки на RSA.
  */
 public class RSALatticeFactorization {
+
+  /**
+   * Основной метод для факторизации.
+   *
+   * @param n     параметр RSA
+   * @param m     параметр решетки
+   * @param t     параметр решетки
+   * @param N     параметр RSA
+   * @param e     параметр RSA
+   * @param d0    параметр RSA
+   * @param M     число известных бит в виде 2^s
+   * @param delta приближение d относительно N
+   * @throws IOException          исключение при работе с файлами
+   * @throws InterruptedException исключение при запуске процесса
+   */
+  public static Dividers factorization(
+      int n,
+      int m,
+      int t,
+      BigInteger N,
+      BigInteger e,
+      BigInteger d0,
+      BigInteger M,
+      BigDecimal delta) throws IOException, InterruptedException {
+    BigDecimal alpha = FactorizationUtils.log(new BigDecimal(N), new BigDecimal(e));
+    BigDecimal mu = FactorizationUtils.log(new BigDecimal(N), new BigDecimal(M));
+
+    BigDecimal xScale = alpha.add(delta).subtract(new BigDecimal(n)).add(BigDecimal.ONE);
+    BigDecimal yScale = BigDecimal.valueOf(0.5);
+
+    BigInteger X = FactorizationUtils.scale(N, xScale);
+    BigInteger Y = FactorizationUtils.scale(N, yScale).multiply(BigInteger.valueOf(3));
+    BigInteger Z = X.multiply(Y.pow(n - 1));
+
+    if (FactorizationUtils.canFactorize(n, alpha, mu, delta)) {
+      return factorization(
+          N,
+          e.multiply(d0).negate().add(BigInteger.ONE),
+          e.multiply(M),
+          n,
+          m,
+          t,
+          X,
+          Y,
+          Z
+      );
+    }
+
+    return null;
+  }
+
+  /**
+   * Факторизация RSA.
+   *
+   * @param N модуль RSA
+   * @param c свободный член уравнения f(x,y) = xH(y) + c
+   * @param e модуль уравнения f(x,y) = xH(y) + c = 0 (mod e)
+   * @param n произвольно выбранная константа (размер полиномов) из публичного ключа
+   * @param m параметр решетки. максимальная степень базового многочлена F(x, y, z)
+   * @param t параметр решетки. максимальная степень дополнительной переменной y
+   * @param X масштабирование по X. определяется экспериментально.
+   * @param Y масштабирование по Y. определяется экспериментально.
+   * @param Z масштабирование по Z. определяется экспериментально.
+   * @throws IOException          исключение при работе с файлами
+   * @throws InterruptedException исключение при работе с утилитой fplll
+   */
+  public static Dividers factorization(
+      BigInteger N,
+      BigInteger c,
+      BigInteger e,
+      int n,
+      int m,
+      int t,
+      BigInteger X,
+      BigInteger Y,
+      BigInteger Z) throws IOException, InterruptedException {
+    int r = n - 1;
+    BigInteger[] H = Polynomial.phi(n, N);
+
+    Map<IndexTriple, MultivariatePolynomial> Gs = generateG(H, c, e, m, t, r);
+
+    List<Monomial> basis = generateCustomMonomialBasis(Gs);
+    BigInteger[][] matrix = polynomialsToMatrix(Gs, basis, X, Y, Z);
+
+    File latticeFile = new File("lattice.input");
+    File reducedFile = new File("reduced.output");
+
+    writeMatrixForFplll(matrix, latticeFile);
+    runFplll(latticeFile, reducedFile);
+
+    List<BigInteger[]> vectors = readFplllOutput(reducedFile);
+    List<MultivariatePolynomial> polys = new ArrayList<>();
+
+    for (BigInteger[] vector : vectors) {
+      polys.add(vectorToPolynomialUnscale(vector, basis, X, Y, Z));
+    }
+
+    exportPolynomialsToSage(polys, r, new File("solve.sage"));
+
+    File sageScript = new File("solve.sage");
+    List<String> sageOutput = runSage(sageScript);
+
+    BigInteger sum = extractResponse(sageOutput.get(1));
+
+    return getDividers(sum, N);
+  }
 
   /**
    * Генерация полиномов G(x,y,z).
@@ -78,6 +186,21 @@ public class RSALatticeFactorization {
             (a, b) -> a,
             LinkedHashMap::new
         ));
+  }
+
+  /**
+   * Генерация базиса для решетки.
+   *
+   * @param Gs сгенерированные полиномы G(Xx, Yy, Zz)
+   * @return базис решетки
+   */
+  private static List<Monomial> generateCustomMonomialBasis(
+      Map<IndexTriple, MultivariatePolynomial> Gs) {
+    return Gs.values().stream()
+        .flatMap(p -> p.getTerms().keySet().stream())
+        .distinct()
+        .sorted(new MonomialComparator())
+        .toList();
   }
 
   /**
@@ -209,108 +332,6 @@ public class RSALatticeFactorization {
   }
 
   /**
-   * Вычисление Евклидовой нормы.
-   *
-   * @param poly полиномы
-   * @return Евклидова норма
-   */
-  private static BigInteger computeEuclideanNormSquared(MultivariatePolynomial poly) {
-    BigInteger normSquared = BigInteger.ZERO;
-
-    for (BigInteger coeff : poly.getTerms().values()) {
-      normSquared = normSquared.add(coeff.pow(2));
-    }
-
-    return normSquared.sqrt();
-  }
-
-  /**
-   * Экспортирование полиномов в файл sage для решения методом Гребнера.
-   *
-   * @param polys полиномы
-   * @param file  файл для вывода
-   * @throws IOException исключение при работе с файлом
-   */
-  private static void exportPolynomialsToSage(List<MultivariatePolynomial> polys, File file)
-      throws IOException {
-    try (PrintWriter writer = new PrintWriter(file)) {
-      writer.println("R.<x, y, z> = PolynomialRing(QQ, 3)");
-      writer.println();
-
-      List<MultivariatePolynomial> sorted = new ArrayList<>(polys);
-      sorted.sort(Comparator.comparing(RSALatticeFactorization::computeEuclideanNormSquared));
-
-      for (int i = 0; i < Math.min(45, sorted.size()); i++) {
-        MultivariatePolynomial poly = sorted.get(i);
-        StringBuilder sb = new StringBuilder("f" + (i + 1) + " = ");
-        List<String> terms = getTerms(poly);
-        sb.append(String.join(" + ", terms));
-        writer.println(sb);
-      }
-
-      writer.println();
-      writer.println("I = ideal(f1, f2, f3)");
-      writer.println("print('Groebner basis:')");
-      writer.println("print(I.groebner_basis())");
-      writer.println("print('Solutions:')");
-      writer.println("print(I.variety())");
-    }
-  }
-
-  /**
-   * Вывод полинома для файла sage.
-   *
-   * @param poly полином
-   * @return список мономов
-   */
-  private static List<String> getTerms(MultivariatePolynomial poly) {
-    List<String> terms = new ArrayList<>();
-
-    for (var entry : poly.terms.entrySet()) {
-      BigInteger coeff = entry.getValue();
-      Monomial m = entry.getKey();
-
-      if (coeff.equals(BigInteger.ZERO)) {
-        continue;
-      }
-
-      String term = coeff.toString();
-      if (m.x() > 0) {
-        term += "*x" + (m.x() > 1 ? "^" + m.x() : "");
-      }
-      if (m.y() > 0) {
-        term += "*y" + (m.y() > 1 ? "^" + m.y() : "");
-      }
-      if (m.z() > 0) {
-        term += "*z" + (m.z() > 1 ? "^" + m.z() : "");
-      }
-
-      terms.add(term);
-    }
-
-    if (terms.isEmpty()) {
-      terms.add("0");
-    }
-
-    return terms;
-  }
-
-  /**
-   * Генерация базиса для решетки.
-   *
-   * @param Gs сгенерированные полиномы G(Xx, Yy, Zz)
-   * @return базис решетки
-   */
-  private static List<Monomial> generateCustomMonomialBasis(
-      Map<IndexTriple, MultivariatePolynomial> Gs) {
-    return Gs.values().stream()
-        .flatMap(p -> p.getTerms().keySet().stream())
-        .distinct()
-        .sorted(new MonomialComparator())
-        .toList();
-  }
-
-  /**
    * Перевод векторов в полиномы с размасштабированием.
    *
    * @param vector вектор
@@ -344,6 +365,37 @@ public class RSALatticeFactorization {
     }
 
     return poly;
+  }
+
+  /**
+   * Экспортирование полиномов в файл sage для решения методом Гребнера.
+   *
+   * @param polys полиномы
+   * @param file  файл для вывода
+   * @throws IOException исключение при работе с файлом
+   */
+  private static void exportPolynomialsToSage(List<MultivariatePolynomial> polys, int r, File file)
+      throws IOException {
+    try (PrintWriter writer = new PrintWriter(file)) {
+      writer.println("R.<x, y> = PolynomialRing(QQ, 2)");
+      writer.println();
+
+      List<MultivariatePolynomial> sorted = new ArrayList<>(polys);
+      sorted.sort(Comparator.comparing(RSALatticeFactorization::computeEuclideanNormSquared));
+
+      for (int i = 0; i < sorted.size(); i++) {
+        MultivariatePolynomial poly = sorted.get(i);
+        StringBuilder sb = new StringBuilder("f" + (i + 1) + " = ");
+        List<String> terms = getTerms(poly, r);
+        sb.append(String.join(" + ", terms));
+        writer.println(sb);
+      }
+
+      writer.println();
+      writer.println("I = ideal(f1, f2, f3)");
+      writer.println("print('Groebner basis:')");
+      writer.println("print(I.groebner_basis())");
+    }
   }
 
   /**
@@ -381,73 +433,92 @@ public class RSALatticeFactorization {
   }
 
   /**
-   * Атака на RSA.
+   * Извлекает значение y из строки вида "[x - 123, y - 4567890]".
    *
-   * @param N модуль RSA
-   * @param c свободный член уравнения f(x,y) = xH(y) + c
-   * @param e модуль уравнения f(x,y) = xH(y) + c = 0 (mod e)
-   * @param n произвольно выбранная константа (размер полиномов) из публичного ключа
-   * @param m параметр решетки. максимальная степень базового многочлена F(x, y, z)
-   * @param t параметр решетки. максимальная степень дополнительной переменной y
-   * @param X масштабирование по X. определяется экспериментально.
-   * @param Y масштабирование по Y. определяется экспериментально.
-   * @param Z масштабирование по Z. определяется экспериментально.
-   * @throws IOException          исключение при работе с файлами
-   * @throws InterruptedException исключение при работе с утилитой fplll
+   * @param input входная строка
+   * @return значение y как BigInteger
+   * @throws IllegalArgumentException если значение y не найдено
    */
-  public static void factorization(
-      BigInteger N,
-      BigInteger c,
-      BigInteger e,
-      int n,
-      int m,
-      int t,
-      BigInteger X,
-      BigInteger Y,
-      BigInteger Z) throws IOException, InterruptedException {
-    int r = n - 1;
-    BigInteger[] H = Polynomial.phi(n, N);
+  public static BigInteger extractResponse(String input) {
+    Pattern pattern = Pattern.compile("y\\s*-\\s*(-?\\d+)");
+    Matcher matcher = pattern.matcher(input);
 
-    Map<IndexTriple, MultivariatePolynomial> Gs = generateG(H, c, e, m, t, r);
-
-    List<Monomial> basis = generateCustomMonomialBasis(Gs);
-    BigInteger[][] matrix = polynomialsToMatrix(Gs, basis, X, Y, Z);
-
-    File latticeFile = new File("lattice.input");
-    File reducedFile = new File("reduced.output");
-
-    writeMatrixForFplll(matrix, latticeFile);
-    runFplll(latticeFile, reducedFile);
-
-    List<BigInteger[]> vectors = readFplllOutput(reducedFile);
-    List<MultivariatePolynomial> polys = new ArrayList<>();
-
-    for (BigInteger[] vector : vectors) {
-      polys.add(vectorToPolynomialUnscale(vector, basis, X, Y, Z));
+    if (matcher.find()) {
+      return new BigInteger(matcher.group(1));
     }
 
-    check(polys);
+    throw new IllegalArgumentException("Не удалось найти значение y в строке: " + input);
+  }
 
-    exportPolynomialsToSage(polys, new File("solve.sage"));
-
-    File sageScript = new File("solve.sage");
-    List<String> sageOutput = runSage(sageScript);
-
-    for (String line : sageOutput) {
-      System.out.println(line);
-    }
+  private static Dividers getDividers(BigInteger sum, BigInteger mult) {
+    BigInteger q = sum.subtract(sum.pow(2).subtract(mult.multiply(BigInteger.valueOf(4))).sqrt())
+        .divide(BigInteger.valueOf(2));
+    BigInteger p = sum.add(sum.pow(2).subtract(mult.multiply(BigInteger.valueOf(4))).sqrt())
+        .divide(BigInteger.valueOf(2));
+    return new Dividers(p, q);
   }
 
   /**
-   * Проверка полиномов после выполнения LLL. Исключительно для числового примера из статьи.
+   * Вычисление Евклидовой нормы.
    *
-   * @param polys полиномы после алгоритма LLL
+   * @param poly полиномы
+   * @return Евклидова норма
    */
-  private static void check(List<MultivariatePolynomial> polys) {
+  private static BigInteger computeEuclideanNormSquared(MultivariatePolynomial poly) {
+    BigInteger normSquared = BigInteger.ZERO;
+
+    for (BigInteger coeff : poly.getTerms().values()) {
+      normSquared = normSquared.add(coeff.pow(2));
+    }
+
+    return normSquared.sqrt();
+  }
+
+  /**
+   * Вывод полинома для файла sage.
+   *
+   * @param poly полином
+   * @return список мономов
+   */
+  private static List<String> getTerms(MultivariatePolynomial poly, int r) {
+    List<String> terms = new ArrayList<>();
+    String substitution = "(x*y^" + r + ")";
+
+    for (var entry : poly.terms.entrySet()) {
+      BigInteger coeff = entry.getValue();
+      Monomial m = entry.getKey();
+
+      if (coeff.equals(BigInteger.ZERO)) {
+        continue;
+      }
+
+      String term = coeff.toString();
+      if (m.x() > 0) {
+        term += "*x" + (m.x() > 1 ? "^" + m.x() : "");
+      }
+      if (m.y() > 0) {
+        term += "*y" + (m.y() > 1 ? "^" + m.y() : "");
+      }
+      if (m.z() > 0) {
+        term += "*" + substitution + (m.z() > 1 ? "^" + m.z() : "");
+      }
+
+      terms.add(term);
+    }
+
+    if (terms.isEmpty()) {
+      terms.add("0");
+    }
+
+    return terms;
+  }
+
+  private static void checkEquations(
+      List<MultivariatePolynomial> polys,
+      BigInteger x0,
+      BigInteger y0,
+      BigInteger z0) {
     int counter = 0;
-    BigInteger x0 = new BigInteger("60864");
-    BigInteger y0 = new BigInteger("1360935721901674");
-    BigInteger z0 = new BigInteger("153416945486038003758230020755607195112116718900736");
 
     for (MultivariatePolynomial poly : polys) {
       counter++;
@@ -466,142 +537,6 @@ public class RSALatticeFactorization {
       }
 
       System.out.println("f" + counter + " = " + val);
-    }
-  }
-
-  /**
-   * Проверка полиномов после выполнения LLL. Исключительно для числового примера из статьи.
-   *
-   * @param polys полиномы после алгоритма LLL
-   */
-  private static void check1(List<MultivariatePolynomial> polys) {
-    int counter = 0;
-    BigInteger x0 = new BigInteger("1616573608644257585");
-    BigInteger y0 = new BigInteger("1360935721901674");
-    BigInteger z0 = new BigInteger("40748185648950035910680304028872647558518309799826755032040");
-
-    for (MultivariatePolynomial poly : polys) {
-      counter++;
-      Map<Monomial, BigInteger> terms = poly.getTerms();
-      BigInteger val = BigInteger.ZERO;
-
-      for (Entry<Monomial, BigInteger> entry : terms.entrySet()) {
-        BigInteger coeff = entry.getValue();
-        Monomial monomial = entry.getKey();
-
-        val = val.add(
-            coeff.multiply(x0.pow(monomial.x()))
-                .multiply(y0.pow(monomial.y()))
-                .multiply(z0.pow(monomial.z()))
-        );
-      }
-
-      System.out.println("f" + counter + " = " + val);
-    }
-  }
-
-  /**
-   * Основной метод для факторизации.
-   *
-   * @param n     параметр RSA
-   * @param m     параметр решетки
-   * @param t     параметр решетки
-   * @param N     параметр RSA
-   * @param e     параметр RSA
-   * @param d0    параметр RSA
-   * @param M     число известных бит в виде 2^s
-   * @param delta приближение d относительно N
-   * @throws IOException          исключение при работе с файлами
-   * @throws InterruptedException исключение при запуске процесса
-   */
-  public static void factorization(
-      int n,
-      int m,
-      int t,
-      BigInteger N,
-      BigInteger e,
-      BigInteger d0,
-      BigInteger M,
-      BigDecimal delta) throws IOException, InterruptedException {
-    BigDecimal alpha = FactorizationUtils.log(new BigDecimal(N), new BigDecimal(e));
-
-    BigDecimal xScale = alpha.add(delta).subtract(new BigDecimal(n)).add(BigDecimal.ONE);
-    BigDecimal yScale = BigDecimal.valueOf(0.5);
-
-    BigInteger X = FactorizationUtils.scale(N, xScale);
-    BigInteger Y = FactorizationUtils.scale(N, yScale).multiply(BigInteger.valueOf(3));
-    BigInteger Z = X.multiply(Y.pow(n - 1));
-
-    factorization(
-        N,
-        e.multiply(d0).negate().add(BigInteger.ONE),
-        e.multiply(M),
-        n,
-        m,
-        t,
-        X,
-        Y,
-        Z
-    );
-  }
-
-  /**
-   * Воспроизведение примера из статьи.
-   *
-   * @throws IOException исключение при работе с файлами
-   * @throws InterruptedException исключение при запуске процесса
-   */
-  public static void test1() throws IOException, InterruptedException {
-    BigInteger N = new BigInteger("463028995904606051817018641173");
-    BigInteger c = new BigInteger("89508787964537769839958980218674109695435455229928587492654228177046463498977617360027022");
-    BigInteger e = new BigInteger("17245940996311682203024873234841963839090492688579713115090719406582906246851863033916922");
-
-    int n = 4;
-    int m = 4;
-    int t = 2;
-
-    BigInteger X = new BigInteger("680462339813605");
-    BigInteger Y = new BigInteger("2041387019440815");
-    BigInteger Z = new BigInteger("5788687978307547385658367719917397827407255326981854011616875");
-
-    factorization(N, c, e, n, m, t, X, Y, Z);
-  }
-
-  /**
-   * Адаптация примера из статьи под реальные условия RSA.
-   *
-   * @throws IOException исключение при работе с файлами
-   * @throws InterruptedException исключение при запуске процесса
-   */
-  public static void test2() throws IOException, InterruptedException {
-    int n = 4;
-    BigInteger p = new BigInteger("683209007134751");
-    BigInteger q = new BigInteger("677726714766923");
-    BigInteger e = new BigInteger("65537");
-    BigInteger N = p.multiply(q);
-    BigInteger phi = RSAUtils.phi(p, q, n);
-    BigInteger d = e.modInverse(phi);
-    BigInteger d1 = d.shiftRight(210);
-    BigInteger d0 = d.subtract(d1.multiply(BigInteger.TWO.pow(210)));
-    BigInteger M = BigInteger.TWO.pow(210);
-    int m = 4;
-    int t = 2;
-
-    BigDecimal alpha = FactorizationUtils.log(new BigDecimal(N), new BigDecimal(e));
-    BigDecimal mu = FactorizationUtils.log(new BigDecimal(N), new BigDecimal(M));
-    BigDecimal delta = new BigDecimal("3");
-
-    if (FactorizationUtils.canFactorize(n, alpha, mu, delta)) {
-      factorization(
-          n,
-          m,
-          t,
-          N,
-          e,
-          d0,
-          M,
-          delta
-      );
     }
   }
 }
