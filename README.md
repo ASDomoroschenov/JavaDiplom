@@ -32,7 +32,7 @@ java -jar rsa-factorization.jar \
   --delta=3
 ```
 
-## График приложения
+## График зависимости
 
 ```python
 import math
